@@ -1,0 +1,7 @@
+Read /workspace/start.md and implement the complete project in /workspace. Follow the document's API Usage Guide and runtime requirements. Produce a runnable repository, including its package metadata and dependencies.
+
+Use Agent Teams for this task. Create exactly {teammates} named teammates with spawn_teammate, using fresh context and giving each a complete task description. Delegate implementation and review responsibilities. Every teammate must read start.md. All agents share /workspace, so coordinate file ownership using the shared task board and writeScopes. Avoid concurrent edits to the same files.
+
+Multi-agent communication is required. Use send_message to give each teammate follow-up instructions. Each teammate must send findings back to lead. Teammates must also exchange implementation or review findings directly with one another through send_message. A queued message is already stored; do not resend it. Resolve review findings and integrate the work into the repository.
+
+Before finishing, inspect list_agents and team_task_list. Complete the required task-board items, receive each teammate's final report, and call wait_agent on every teammate so each has finished its turns before you finish. The harness stops all teammates as soon as the lead finishes, so an inactive teammate is not evidence that its task succeeded. Do not finish while work or messages remain outstanding. The lead owns the final integration and should summarize the implementation and any remaining limitations.
