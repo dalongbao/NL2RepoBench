@@ -1,0 +1,21 @@
+{
+  "backend": "deepseek",
+  "evaluate": false,
+  "max_pool_size": 1,
+  "deepseek": {
+    "image": "nl2repobench-deepseek:639ed01539",
+    "teammates": 2,
+    "task_timeout_seconds": 7200
+  },
+  "startPro": [
+    {
+      "moduleName": "YOUR_MODEL_ID",
+      "protocol": "openai-completions",
+      "baseUrl": "",
+      "apiKeyEnv": "NL2REPO_API_KEY",
+      "contextWindow": 131072,
+      "maxTokens": 16384,
+      "proNameList": ["jsonlines"]
+    }
+  ]
+}
