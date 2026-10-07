@@ -46,10 +46,7 @@ def run_batch_container(create_args: list, name: str, directory: Path,
 
             inspected = docker_command(["inspect", container_id], stdout=subprocess.PIPE,
                                        stderr=lifecycle, timeout=30)
-            container = json.loads(inspected.stdout)[0]
-            state = container["State"]
-            result["image_id"] = container["Image"]
-            result["container_state"] = state
+            state = json.loads(inspected.stdout)[0]["State"]
             if not state["Running"]:
                 result["exit_code"] = state["ExitCode"]
             if result["generation_status"] != "timeout":
@@ -57,9 +54,11 @@ def run_batch_container(create_args: list, name: str, directory: Path,
                              and not state.get("OOMKilled") and not state.get("Error")
                              and result.get("attach_exit_code") == 0)
                 result["generation_status"] = "completed" if completed else "failed"
+                if state.get("OOMKilled"):
+                    result["error"] = "Container was killed by the out-of-memory killer"
+                elif state.get("Error"):
+                    result["error"] = state["Error"]
         except (OSError, ValueError, subprocess.SubprocessError) as exc:
-            if result["generation_status"] != "timeout":
-                result["generation_status"] = "error"
             # Do not stringify CalledProcessError: its argv may contain endpoint details.
             result["error"] = f"Container operation failed ({type(exc).__name__}); see container.log"
         finally:

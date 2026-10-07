@@ -1,26 +1,14 @@
 """Summarize communication from the pinned harness's uncompressed session logs."""
 
 import json
-import re
 from pathlib import Path
-
-
-def _session_paths(root: Path) -> list:
-    latest = {}
-    for path in root.rglob("session*.jsonl"):
-        match = re.fullmatch(r"session(?:\.v(\d+))?\.jsonl", path.name)
-        if match:
-            version = int(match.group(1) or 0)
-            if path.parent not in latest or version > latest[path.parent][0]:
-                latest[path.parent] = (version, path)
-    return [path for _, path in latest.values()]
 
 
 def summarize_sessions(root: Path, expected_teammates: int) -> dict:
     """Reject incomplete teams; CLI stdout alone omits teammate events."""
     sessions, members, tasks, queued, delivered = {}, {}, {}, {}, set()
     errors = []
-    for path in _session_paths(root):
+    for path in root.rglob("session.v4.jsonl"):
         try:
             with path.open(encoding="utf-8") as stream:
                 header = json.loads(next(stream))
@@ -42,7 +30,7 @@ def summarize_sessions(root: Path, expected_teammates: int) -> dict:
                     elif kind == "agent/inbox/spliced":
                         inbox = inboxes[data["target"]]
                         start = data["start"]
-                        inbox[start:start + data.get("removedCount", 0)] = data.get("inserted", [])
+                        inbox[start:start + data.get("removedCount", 0)] = data["inserted"]
                     # Forked sessions can inherit the lead's earlier Team records.
                     if header.get("parentSession") is not None:
                         continue

@@ -3,7 +3,6 @@
   "evaluate": false,
   "max_pool_size": 1,
   "deepseek": {
-    "image": "nl2repobench-deepseek:639ed01539",
     "teammates": 2,
     "task_timeout_seconds": 7200
   },

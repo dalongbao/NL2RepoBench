@@ -61,7 +61,7 @@ Use environment variables for credentials. The legacy `sk` field is also accepte
 
 #### Team execution
 
-The `deepseek` object configures `image`, `teammates` (default 2, minimum 2), and `task_timeout_seconds` (default 7200). `max_pool_size` limits concurrent benchmark tasks; each task may run a lead plus its teammates, so start with 1 until endpoint capacity is known.
+The `deepseek` object configures `teammates` (default 2, minimum 2), `task_timeout_seconds` (default 7200), and optionally `image` (default `nl2repobench-deepseek:639ed01539`). `max_pool_size` limits concurrent benchmark tasks; each task may run a lead plus its teammates, so start with 1 until endpoint capacity is known.
 
 Every task uses a fresh workspace and `DSH_HOME`. The `nl2repo` profile composes the harness base, headless runner, and experimental Agent Teams bundle. The prompt explicitly requires delegation, shared task tracking, lead/teammate messaging, and direct teammate communication. Teammates share the same workspace and coordinate file edits through task ownership.
 
@@ -136,12 +136,10 @@ OpenHands uses `template/config.template.toml` with per-task model and workspace
 ```text
 workspaces/<task-model-uuid>/
   workspace/                 Generated repository, retained unchanged by evaluation
-  run.json                   Model settings, image ID, harness revision, and limits
   prompt.txt                 Exact task prompt
   stdout.jsonl               Headless CLI event projection for the lead
   stderr.log                 Harness diagnostics
   container.log              Docker lifecycle diagnostics
-  team_summary.json          Team members, messages counted, tasks, completion issues
   dsh-home/
     profiles/nl2repo/         Generated profile manifest and Cordis patch
     sessions/                Complete persisted lead and teammate session logs

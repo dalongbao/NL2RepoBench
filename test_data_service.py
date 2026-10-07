@@ -27,7 +27,6 @@ def read_all_test_data():
     Read all test data, add them to test_data_list.
     Test data folder is stored in ./test_files, each subfolder is a project, subfolder name is proName
     """
-    test_data_list.clear()
     test_files_path = "./test_files"
 
     # 检查 test_files 文件夹是否存在

@@ -7,8 +7,7 @@ from functools import partial
 from pathlib import Path
 
 from docker_self.batch_container import run_batch_container
-from runner import Job, evaluate_result, evaluation_enabled, new_run_id, positive_int, run_batch
-from test_data_service import test_data_list
+from runner import Job, evaluate_result, evaluation_enabled, model_tasks, new_run_id, positive_int, run_batch
 
 APP_IMAGE = "docker.all-hands.dev/all-hands-ai/openhands:0.56"
 RUNTIME_IMAGE = "docker.all-hands.dev/all-hands-ai/runtime:0.56-nikolaik"
@@ -33,9 +32,8 @@ def _run_task(run_id: str, entry: dict, test_data, timeout: int, evaluate: bool)
         f"model = {json.dumps(entry['moduleName'])}\n"
         f"api_key = {json.dumps(key)}\n"
     )
-    base_url = entry.get("baseUrl") or entry.get("base_url")
-    if base_url:
-        model_config += f"base_url = {json.dumps(base_url)}\n"
+    if entry.get("baseUrl"):
+        model_config += f"base_url = {json.dumps(entry['baseUrl'])}\n"
     template = Path("template/config.template.toml").read_text(encoding="utf-8")
     template = template.replace("{{VOLUMES}}", f"volumes = {json.dumps(str(workspace) + ':/workspace:rw')}")
     template = template.replace("{{MODULE_CONFIG}}", model_config)
@@ -61,7 +59,6 @@ def _run_task(run_id: str, entry: dict, test_data, timeout: int, evaluate: bool)
     result = run_batch_container(arguments, f"openhands-{run_id}", run_dir, timeout)
     result.update(
         task_uuid=run_id, workspace_path=str(workspace), config_path=str(config_path),
-        test_data_info={"pro_name": test_data.proName, "test_case_count": test_data.testCaseCount},
         status="completed" if result["generation_status"] == "completed" else "failed",
     )
     if result.get("cleanup_error"):
@@ -74,26 +71,9 @@ def start_openhands(config: dict) -> list:
     pool_size = positive_int(config.get("max_pool_size", 10), "max_pool_size")
     timeout = positive_int(config.get("task_timeout_seconds", 7200), "task_timeout_seconds")
     evaluate = evaluation_enabled(config)
-    tasks = {task.proName: task for task in test_data_list}
-    entries = config.get("startPro")
-    if not isinstance(entries, list) or not entries:
-        raise ValueError("startPro must contain at least one model configuration")
     jobs = []
-    for entry in entries:
-        if not isinstance(entry, dict):
-            raise ValueError("Each startPro entry must be an object")
-        model = entry.get("moduleName")
-        if not isinstance(model, str) or not model.strip():
-            raise ValueError("moduleName must be a nonempty model ID")
-        names = entry.get("proNameList")
-        if not isinstance(names, list) or not names:
-            raise ValueError("proNameList must contain at least one task name")
-        for name in names:
-            if not isinstance(name, str) or name not in tasks:
-                raise ValueError(f"Unknown benchmark task: {name!r}")
-            if not tasks[name].md or not Path(tasks[name].md).is_file():
-                raise ValueError(f"Missing task instructions for {name}")
-            run_id = new_run_id(name, model)
-            jobs.append(Job(run_id, "openhands", model, name,
-                            partial(_run_task, run_id, entry, tasks[name], timeout, evaluate)))
+    for entry, model, task in model_tasks(config):
+        run_id = new_run_id(task.proName, model)
+        jobs.append(Job(run_id, "openhands", model, task.proName,
+                        partial(_run_task, run_id, entry, task, timeout, evaluate)))
     return run_batch(jobs, pool_size)

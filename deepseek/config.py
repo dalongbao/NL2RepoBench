@@ -16,10 +16,8 @@ def resolve_model(entry: dict) -> tuple:
     protocol = entry.get("protocol", "openai-completions")
     if protocol not in PROTOCOLS:
         raise ValueError(f"protocol must be one of {sorted(PROTOCOLS)}")
-    model = entry.get("moduleName")
-    if not isinstance(model, str) or not model.strip():
-        raise ValueError("moduleName must be a nonempty model ID")
-    base_url = entry.get("baseUrl") or entry.get("base_url") or os.environ.get("NL2REPO_BASE_URL")
+    model = entry["moduleName"]
+    base_url = entry.get("baseUrl") or os.environ.get("NL2REPO_BASE_URL")
     if not isinstance(base_url, str) or urlparse(base_url).scheme not in {"http", "https"} or not urlparse(base_url).netloc:
         raise ValueError("Set baseUrl or NL2REPO_BASE_URL to the model API base URL")
     key_env = entry.get("apiKeyEnv", "NL2REPO_API_KEY")
@@ -68,26 +66,21 @@ def write_profile(home: Path, model: dict, teammates: int) -> Path:
         {"id": "agent-default-model", "config": selection},
         {"id": "session-persistence-jsonl", "config": {"root": "/dsh-home/sessions", "compression": "none"}},
         {"id": "agent-team", "config": {"maxMembers": teammates}},
-        # Teammates occupy the shared subagent pool; keep one slot for the lead's own delegation.
-        {"id": "subagent", "config": {"maxActiveSubagents": teammates + 1, "maxDepth": 1}},
-        {"id": "tools", "config": {"mode": "native"}},
+        # Teammates run as subagent continuations and share this pool.
+        {"id": "subagent", "config": {"maxActiveSubagents": teammates}},
         {"id": "session-log-deepseek", "config": {"enabled": False}},
     ]
     # Batch runs need no title model, account route, external search, or alternative delegation tools.
     for plugin in ("session-title-llm", "llm-deepseek-account", "tool-web", "web-search-deepseek",
-                   "tool-workflow", "tool-ralph", "plugin-package-inventory-deepseek"):
+                   "tool-workflow", "plugin-package-inventory-deepseek"):
         patches.append({"id": plugin, "disabled": True})
     catalog_model = {
         "id": model["model"], "contextWindow": model["context_window"], "maxTokens": model["max_tokens"],
     }
     if native:
-        patches.extend([
-            {"id": "llm-pi-ai", "disabled": True},
-            {"id": "llm-deepseek", "config": {
-                "baseURL": model["base_url"], "apiKeyEnv": "NL2REPO_MODEL_API_KEY",
-                "models": [catalog_model], "maxTokens": model["max_tokens"],
-            }},
-        ])
+        patches.append({"id": "llm-deepseek", "config": {
+            "baseURL": model["base_url"], "apiKeyEnv": "NL2REPO_MODEL_API_KEY", "models": [catalog_model],
+        }})
     else:
         if "reasoningEfforts" in model:
             catalog_model["reasoningEfforts"] = model["reasoningEfforts"]

@@ -9,12 +9,13 @@ from logging_config import get_logger
 import test_data_service
 
 logger = get_logger(__name__)
+BACKENDS = ("openhands", "deepseek")
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default=str(Path(__file__).parent / "config.json"))
-    parser.add_argument("--backend", choices=("openhands", "deepseek"))
+    parser.add_argument("--backend", choices=BACKENDS)
     parser.add_argument("--skip-evaluation", action="store_true", help="Generate repositories without running benchmark tests")
     args = parser.parse_args()
     with Path(args.config).expanduser().open(encoding="utf-8") as stream:
@@ -24,7 +25,7 @@ def main() -> int:
     if args.skip_evaluation:
         config["evaluate"] = False
     backend = args.backend or config.get("backend", "openhands")
-    if backend not in {"openhands", "deepseek"}:
+    if backend not in BACKENDS:
         parser.error(f"Unknown backend: {backend}")
     # Existing task metadata and evaluator paths are relative to the benchmark checkout.
     os.chdir(Path(__file__).resolve().parent)

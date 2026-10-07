@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Callable
 
 from logging_config import get_logger
+from test_data_service import test_data_list
 
 logger = get_logger(__name__)
 
@@ -41,6 +42,31 @@ def evaluation_enabled(config: dict) -> bool:
     if type(value) is not bool:
         raise ValueError("evaluate must be true or false")
     return value
+
+
+def model_tasks(config: dict) -> list:
+    """Validate every startPro entry and return (entry, model, test_data) per task."""
+    tasks = {task.proName: task for task in test_data_list}
+    entries = config.get("startPro")
+    if not isinstance(entries, list) or not entries:
+        raise ValueError("startPro must contain at least one model configuration")
+    selected = []
+    for entry in entries:
+        if not isinstance(entry, dict):
+            raise ValueError("Each startPro entry must be an object")
+        model = entry.get("moduleName")
+        if not isinstance(model, str) or not model.strip():
+            raise ValueError("moduleName must be a nonempty model ID")
+        names = entry.get("proNameList")
+        if not isinstance(names, list) or not names:
+            raise ValueError("proNameList must contain at least one task name")
+        for name in names:
+            if not isinstance(name, str) or name not in tasks:
+                raise ValueError(f"Unknown benchmark task: {name!r}")
+            if not tasks[name].md or not Path(tasks[name].md).is_file():
+                raise ValueError(f"Missing task instructions for {name}")
+            selected.append((entry, model, tasks[name]))
+    return selected
 
 
 def write_json(path: Path, value) -> None:
@@ -80,9 +106,8 @@ def evaluate_result(result: dict, test_data, enabled: bool) -> dict:
     return result
 
 
-def run_batch(jobs: list, max_workers: int, result_dir: str = "result") -> list:
+def run_batch(jobs: list, max_workers: int) -> list:
     """Save a result for every submitted job, including generation failures."""
-    positive_int(max_workers, "max_pool_size")
     results = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         pending = {executor.submit(job.run): job for job in jobs}
@@ -90,8 +115,6 @@ def run_batch(jobs: list, max_workers: int, result_dir: str = "result") -> list:
             job = pending[future]
             try:
                 result = future.result()
-                if not isinstance(result, dict):
-                    raise RuntimeError("Backend returned no task result")
             except Exception as exc:
                 result = {"status": "error", "generation_status": "error", "error": str(exc)}
             result.update(
@@ -102,7 +125,7 @@ def run_batch(jobs: list, max_workers: int, result_dir: str = "result") -> list:
             result.setdefault("evaluation_status", "skipped")
             result.setdefault("test_score", None)
             result.setdefault("score", None)
-            write_json(Path(result_dir) / f"{job.task_uuid}.json", result)
+            write_json(Path("result") / f"{job.task_uuid}.json", result)
             results.append(result)
             logger.info("%s / %s: %s (score=%s)", job.pro_name, job.module_name,
                         result["status"], result["score"])
